@@ -36,7 +36,17 @@ jobs:
         run: chmod +x mvnw
         
       - name: Build App
-        run: ./mvnw clean package
+        id: build
+        continue-on-error: true
+        run: |
+            ./mvnw clean package > build.log 2>&1
+
+      - name: Upload Build Log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
 
       - name: Upload Build Artifacts
         if: success()
