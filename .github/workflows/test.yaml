@@ -65,6 +65,14 @@ jobs:
         run: |
           python scripts/failure_analysis.py
 
+
+      - name: Publish RCA Summary
+        if: always()
+        run: |
+          echo "## 🚨 PRISM RCA Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat rca_summary.md >> $GITHUB_STEP_SUMMARY
+
       - name: Verify RCA File
         if: always()
         run: |

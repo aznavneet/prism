@@ -1,31 +1,27 @@
 import os
-
-try:
-    import google.generativeai as genai
-except ImportError:
-    print("Error: google-generativeai library is not installed.")
-    print("Install it with: pip install google-generativeai")
-    exit(1)
+import google.generativeai as genai
 
 # Configure Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
-# Load model
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 # Read build log
 with open("build.log", "r", encoding="utf-8", errors="ignore") as f:
-    build_log = f.read()[-15000:]  # last 15k chars
+    build_log = f.read()[-15000:]
 
-prompt = f"""
+# Full RCA
+full_prompt = f"""
 You are a Senior DevOps Engineer.
 
-Analyze the following CI/CD pipeline failure.
+Analyze this CI/CD pipeline failure.
 
-Return the response in markdown format with:
+Provide:
 
 # Root Cause
+
 # Explanation
+
 # Suggested Fix
 
 Build Log:
@@ -33,10 +29,33 @@ Build Log:
 {build_log}
 """
 
-response = model.generate_content(prompt)
+full_response = model.generate_content(full_prompt)
 
-# Write RCA file
 with open("rca.md", "w", encoding="utf-8") as f:
-    f.write(response.text)
+    f.write(full_response.text)
 
-print("RCA generated successfully.")
+# Short Summary
+summary_prompt = f"""
+You are a Senior DevOps Engineer.
+
+Analyze this CI/CD pipeline failure.
+
+Return only:
+
+## Root Cause
+(max 2 lines)
+
+## Suggested Fix
+(max 3 lines)
+
+Build Log:
+
+{build_log}
+"""
+
+summary_response = model.generate_content(summary_prompt)
+
+with open("rca_summary.md", "w", encoding="utf-8") as f:
+    f.write(summary_response.text)
+
+print("RCA and Summary generated successfully.")
