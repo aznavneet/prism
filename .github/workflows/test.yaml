@@ -16,7 +16,10 @@ jobs:
 
   build:
 
-    if: contains(github.event.pull_request.labels.*.name, 'build:run')
+    if: contains(
+      github.event.pull_request.labels.*.name,
+      'build:run'
+      )
 
     runs-on: ubuntu-latest
 
@@ -34,12 +37,12 @@ jobs:
 
       - name: Verify Maven Wrapper
         run: chmod +x mvnw
-        
-      - name: Build App
+
+      - name: Build Application
         id: build
         continue-on-error: true
         run: |
-            ./mvnw clean package > build.log 2>&1
+          ./mvnw clean package > build.log 2>&1
 
       - name: Upload Build Log
         if: always()
@@ -48,17 +51,27 @@ jobs:
           name: build-log
           path: build.log
 
-      - name: Upload Build Artifacts
-        if: success()
+      - name: Install Gemini SDK
+        if: failure()
+        run: |
+          pip install google-generativeai
+
+      - name: Generate RCA
+        if: always()
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python scripts/failure_analysis.py
+
+      - name: Upload RCA
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: prism-artifacts
-          path: |
-            target/*.jar
+          name: rca-report
+          path: rca.md
 
-      - name: Build Summary
-        if: success()
+      - name: Fail Pipeline
+        if: steps.build.outcome == 'failure'
+
         run: |
-          echo "PRISM Build Successful"
-          echo "Branch: ${{ github.head_ref }}"
-          echo "PR Number: ${{ github.event.pull_request.number }}"
+          exit 1
