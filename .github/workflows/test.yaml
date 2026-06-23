@@ -72,12 +72,16 @@ jobs:
            ls -la
            cat rca.md
 
+      - name: Rename RCA
+        run: |
+         SHORT_SHA=$(git rev-parse --short HEAD)
+         mv rca.md rca-${SHORT_SHA}.md
+
       - name: Upload RCA
-        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rca-report
-          path: rca.md
+            name: rca-${{ github.sha }}
+            path: rca-*.md
 
       - name: Fail Pipeline
         if: steps.build.outcome == 'failure'
