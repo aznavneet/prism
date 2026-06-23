@@ -91,6 +91,21 @@ jobs:
             name: rca-${{ github.sha }}
             path: rca-*.md
 
+      - name: Send RCA Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+         server_address: smtp.gmail.com
+         server_port: 465
+         secure: true
+         username: ${{ secrets.MAIL_USERNAME }}
+         password: ${{ secrets.MAIL_PASSWORD }}
+         subject: "🚨 PRISM Build Failure"
+         to: prism.bot11@gmail.com
+         from: PRISM Bot
+         body: |
+          AI RCA report attached.
+         attachments: rca-*.md
+
       - name: Fail Pipeline
         if: steps.build.outcome == 'failure'
 
