@@ -52,9 +52,11 @@ jobs:
           path: build.log
 
       - name: Install Gemini SDK
-        if: failure()
+        if: steps.build.outcome == 'failure'
         run: |
-          pip install google-generativeai
+           python -m pip install --upgrade pip
+           pip install google-generativeai
+
 
       - name: Generate RCA
         if: always()
@@ -63,8 +65,15 @@ jobs:
         run: |
           python scripts/failure_analysis.py
 
+      - name: Verify RCA File
+        if: always()
+        run: |
+           pwd
+           ls -la
+           cat rca.md
+
       - name: Upload RCA
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rca-report
