@@ -1,0 +1,54 @@
+name: PRISM CI
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+
+  build:
+
+    if: contains(github.event.pull_request.labels.*.name, 'build:run')
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Verify Maven Wrapper
+        run: chmod +x mvnw
+
+      - name: Build App
+        run: ./mvnw clean package
+
+      - name: Upload Build Artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-artifacts
+          path: |
+            target/*.jar
+
+      - name: Build Summary
+        if: success()
+        run: |
+          echo "PRISM Build Successful"
+          echo "Branch: ${{ github.head_ref }}"
+          echo "PR Number: ${{ github.event.pull_request.number }}"
