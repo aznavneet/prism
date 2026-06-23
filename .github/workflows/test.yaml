@@ -34,7 +34,7 @@ jobs:
 
       - name: Verify Maven Wrapper
         run: chmod +x mvnw
-
+        
       - name: Build App
         run: ./mvnw clean package
 
