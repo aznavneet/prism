@@ -52,7 +52,7 @@ jobs:
           path: build.log
 
       - name: Install Gemini SDK
-        if: steps.build.outcome == 'failure'
+        if: always()  ##in reality it will run only when the build fails, but we want to run it always to ensure the SDK is available for RCA generation
         run: |
            python -m pip install --upgrade pip
            pip install google-generativeai
