@@ -1,143 +1,224 @@
-# PRISM - Pipeline Root Cause Intelligence & Self-Healing Mechanism
+# PRISM - AI-Powered CI/CD Failure Intelligence Platform
 
-PRISM is an AI-powered CI/CD failure analysis platform that automatically detects pipeline failures, analyzes build logs using Generative AI, and generates actionable Root Cause Analysis (RCA) reports for developers.
+## Overview
 
-## Problem Statement
+PRISM (Pipeline Root Cause Intelligence & Self-Healing Mechanism) is an AI-powered CI/CD Failure Intelligence Platform designed to help engineering organizations reduce build investigation time, improve developer productivity, and accelerate software delivery.
 
-Modern CI/CD pipelines generate extensive logs during build, test, and deployment stages. When a failure occurs, developers often spend significant time manually investigating logs to identify the actual issue.
+PRISM automatically analyzes CI/CD pipeline failures, identifies probable root causes, generates actionable remediation guidance, and delivers intelligent failure insights directly to engineering teams.
 
-PRISM reduces troubleshooting effort by automatically analyzing failures and providing structured RCA reports.
-
----
-
-## Features
-
-* Automated build failure detection
-* AI-powered root cause analysis using Gemini
-* Detailed RCA report generation (`rca.md`)
-* Developer-friendly RCA summaries
-* Commit-aware RCA tracking
-* Build log artifact collection
-* Automated RCA distribution via email
-* GitHub Actions integration
-* Extensible notification framework (Email, Teams, Slack)
+Instead of spending valuable engineering time navigating thousands of lines of logs, teams receive structured, AI-generated diagnostics within minutes of a failure.
 
 ---
 
-## How It Works
+## Business Problem
+
+Modern software delivery pipelines generate large volumes of logs across:
+
+* Build Systems
+* Unit Testing Frameworks
+* Security Scanning Tools
+* Container Platforms
+* Deployment Pipelines
+
+When failures occur, developers must manually investigate logs to determine:
+
+* What failed?
+* Why it failed?
+* How to fix it?
+
+This process increases:
+
+* Mean Time To Resolution (MTTR)
+* Release Delays
+* Engineering Costs
+* Operational Overhead
+
+PRISM automates this analysis process.
+
+---
+
+## What PRISM Does
+
+PRISM continuously monitors CI/CD execution outcomes and automatically performs failure analysis when a pipeline execution fails.
+
+### Core Capabilities
+
+* Automated Failure Detection
+* AI-Powered Root Cause Analysis
+* Intelligent Remediation Suggestions
+* Build Log Analysis
+* Failure Summarization
+* Commit-Level RCA Tracking
+* Developer Notifications
+* Historical Failure Intelligence
+
+---
+
+## How PRISM Works
 
 ```text
-Developer Commit
+Source Code Commit
         │
         ▼
-GitHub Pull Request
+CI/CD Pipeline Execution
         │
         ▼
-GitHub Actions Pipeline
+Build/Test/Deployment Failure
         │
         ▼
-Build Execution
+Automated Log Collection
         │
-        ├── Success
-        │       ▼
-        │    Pipeline Pass
+        ▼
+PRISM AI Analysis Engine
         │
-        └── Failure
-                │
-                ▼
-         build.log Generated
-                │
-                ▼
-      PRISM Failure Analyzer
-                │
-                ▼
-         Gemini AI Analysis
-                │
-                ▼
-      RCA + Summary Generation
-                │
-                ▼
-      RCA Artifact Creation
-                │
-                ▼
-     Email Notification (Optional)
-                │
-                ▼
-         Developer Action
+        ▼
+Root Cause Identification
+        │
+        ▼
+Fix Recommendation Generation
+        │
+        ▼
+Developer Notification
+        │
+        ▼
+Faster Resolution
 ```
 
 ---
 
-## Generated Outputs
+## AI-Powered Failure Analysis
 
-### Full RCA Report
+PRISM leverages Generative AI to transform raw pipeline logs into actionable engineering intelligence.
 
-```text
-rca.md
-```
+Generated outputs include:
 
-Contains:
+### Root Cause
 
-* Root Cause
-* Technical Explanation
-* Suggested Fix
+Identifies the most probable failure source.
 
-### RCA Summary
+### Technical Explanation
 
-Provides a concise overview of the failure for quick developer consumption.
+Provides context and reasoning behind the failure.
+
+### Suggested Fix
+
+Generates corrective actions that developers can immediately apply.
+
+### Executive Summary
+
+Produces a concise failure summary for rapid triage.
 
 ---
 
-## Notification Support
+## Developer Experience
 
-PRISM can automatically send the generated RCA report as an email attachment to development teams.
+PRISM delivers failure intelligence through multiple channels:
 
-Email notifications include:
+### Workflow Summaries
 
-* Repository Name
-* Branch Name
+Instant failure summaries directly within CI/CD execution results.
+
+### RCA Reports
+
+Detailed Root Cause Analysis reports generated in Markdown format.
+
+### Email Notifications
+
+Automatically distributes RCA reports to development teams.
+
+Delivered information includes:
+
+* Repository
+* Branch
 * Commit ID
 * Build Status
-* RCA Report Attachment (`rca.md`)
+* AI Generated RCA
+* Suggested Fix
 
-This enables developers to receive failure diagnostics directly in their inbox without manually inspecting CI/CD logs.
+### Future Integrations
 
----
-
-## Benefits
-
-* Faster troubleshooting
-* Reduced Mean Time To Resolution (MTTR)
-* Improved developer productivity
-* Automated failure intelligence
-* Better CI/CD visibility
-* Historical failure tracking
+* Microsoft Teams
+* Slack
+* Jira
+* ServiceNow
+* Enterprise Ticketing Platforms
 
 ---
 
-## Future Enhancements
+## Business Value
 
-* Pull Request RCA Comments
-* Microsoft Teams Integration
-* Slack Integration
-* Jira Ticket Creation
-* Failure Pattern Analytics
-* AI-Assisted Self-Healing Pull Requests
+### Reduce MTTR
+
+Accelerates issue diagnosis and resolution.
+
+### Improve Developer Productivity
+
+Eliminates manual log analysis for common failures.
+
+### Accelerate Releases
+
+Reduces delivery bottlenecks caused by build failures.
+
+### Capture Organizational Knowledge
+
+Creates a searchable history of failure patterns and remediation actions.
+
+### Standardize Incident Investigation
+
+Ensures consistent analysis across engineering teams.
 
 ---
 
-## Tech Stack
+## Target Customers
+
+PRISM is suitable for organizations running:
 
 * GitHub Actions
-* Python
-* Google Gemini API
-* Maven
-* Java
-* GitHub Artifacts
-* SMTP Email Notifications
+* Jenkins
+* GitLab CI/CD
+* Azure DevOps
+* Kubernetes-based Delivery Platforms
+* Enterprise DevOps Toolchains
+
+Industries include:
+
+* Banking & Financial Services
+* Telecommunications
+* Retail & E-Commerce
+* Healthcare
+* SaaS Platforms
+* Enterprise Software
+
+---
+
+## Future Roadmap
+
+### Phase 1
+
+AI-Powered RCA Generation
+
+### Phase 2
+
+Multi-Channel Notifications
+
+### Phase 3
+
+Failure Pattern Intelligence
+
+### Phase 4
+
+Predictive Failure Detection
+
+### Phase 5
+
+AI-Assisted Self-Healing Pipelines
+
+### Phase 6
+
+Automated Fix Pull Requests
 
 ---
 
 ## Vision
 
-PRISM transforms traditional CI/CD pipelines into intelligent failure analysis systems by combining build automation, AI-driven diagnostics, and automated developer notifications.
+PRISM transforms CI/CD pipelines from passive execution engines into intelligent engineering assistants that not only detect failures, but explain them, recommend fixes, and proactively assist development teams in resolving them.
