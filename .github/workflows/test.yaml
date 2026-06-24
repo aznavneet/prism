@@ -65,7 +65,7 @@ jobs:
 
       - name: Build Docker Image
         id: docker
-        if: steps.build.outcome == 'success'
+        # if: steps.build.outcome == 'success'
         continue-on-error: true
         run: |
           echo "" >> ci.log
