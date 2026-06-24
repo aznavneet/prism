@@ -14,15 +14,19 @@ with open("ci.log", "r", encoding="utf-8", errors="ignore") as f:
 full_prompt = f"""
 You are a Senior DevOps Engineer.
 
-Analyze this CI/CD pipeline failure.
+Analyze the CI pipeline log.
 
-Provide:
+Identify:
+1. Which stage failed first.
+2. Ignore warnings from successful stages.
+3. Focus on the stage that caused the pipeline failure.
+4. Provide:
+   - Failed Stage
+   - Root Cause
+   - Evidence
+   - Suggested Fix
 
-# Root Cause
-
-# Explanation
-
-# Suggested Fix
+If multiple failures exist, prioritize the first blocking failure.
 
 CI Log:
 
@@ -38,7 +42,7 @@ with open("rca.md", "w", encoding="utf-8") as f:
 summary_prompt = f"""
 You are a Senior DevOps Engineer.
 
-Analyze this CI/CD pipeline failure.
+Analyze the CI pipeline log.
 
 Return only:
 
