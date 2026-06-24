@@ -38,18 +38,24 @@ jobs:
       - name: Verify Maven Wrapper
         run: chmod +x mvnw
 
+      - name: Initialize CI Log
+        run: |
+          touch ci.log
+          echo "===== CI PIPELINE START =====" > ci.log
+
       - name: Build Application
         id: build
         continue-on-error: true
         run: |
-          ./mvnw clean package > build.log 2>&1
+              echo "===== MAVEN BUILD =====" >> ci.log
+              mvn clean package 2>&1 | tee -a ci.log
 
-      - name: Upload Build Log
+      - name: Upload CI Log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
-          path: build.log
+          name: ci-log
+          path: ci.log
 
       - name: Install Gemini SDK
         if: always()  ##in reality it will run only when the build fails, but we want to run it always to ensure the SDK is available for RCA generation

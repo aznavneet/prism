@@ -6,9 +6,9 @@ genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-# Read build log
-with open("build.log", "r", encoding="utf-8", errors="ignore") as f:
-    build_log = f.read()[-15000:]
+# Read CI log
+with open("ci.log", "r", encoding="utf-8", errors="ignore") as f:
+    ci_log = f.read()[-15000:]
 
 # Full RCA
 full_prompt = f"""
@@ -24,9 +24,9 @@ Provide:
 
 # Suggested Fix
 
-Build Log:
+CI Log:
 
-{build_log}
+{ci_log}
 """
 
 full_response = model.generate_content(full_prompt)
@@ -48,9 +48,9 @@ Return only:
 ## Suggested Fix
 (max 3 lines)
 
-Build Log:
+CI Log:
 
-{build_log}
+{ci_log}
 """
 
 summary_response = model.generate_content(summary_prompt)
