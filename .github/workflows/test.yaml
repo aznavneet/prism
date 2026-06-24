@@ -50,6 +50,47 @@ jobs:
               echo "===== MAVEN BUILD =====" >> ci.log
               mvn clean package 2>&1 | tee -a ci.log
 
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+         username: ${{ secrets.DOCKERHUB_USERNAME }}
+         password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+# Login to Docker Hub
+
+      - name: Login to Docker Hub
+        if: steps.build.outcome == 'success'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+# Docker Build + Push with unified logging
+
+      - name: Build and Push Docker Image
+        id: docker
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: |
+          echo "" >> ci.log
+          echo "===== DOCKER BUILD =====" >> ci.log
+
+          docker build \
+            -f Dockerfile \
+            -t aznavneet/prism:latest \
+            . 2>&1 | tee -a ci.log
+
+          echo "" >> ci.log
+          echo "===== DOCKER PUSH =====" >> ci.log
+
+          docker push \
+            aznavneet/prism:latest \
+            2>&1 | tee -a ci.log
+
+       
+          
+
       - name: Upload CI Log
         if: always()
         uses: actions/upload-artifact@v4
@@ -65,7 +106,7 @@ jobs:
 
 
       - name: Generate RCA
-        if: always()
+        if: always() 
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -89,13 +130,13 @@ jobs:
       - name: Rename RCA
         run: |
          SHORT_SHA=$(git rev-parse --short HEAD)
-         mv rca.md rca-${SHORT_SHA}.md
+         mv rca.md ci-rca-${SHORT_SHA}.md
 
       - name: Upload RCA
         uses: actions/upload-artifact@v4
         with:
             name: rca-${{ github.sha }}
-            path: rca-*.md
+            path: ci-rca-*.md
 
       - name: Send RCA Email
         uses: dawidd6/action-send-mail@v3
@@ -113,7 +154,7 @@ jobs:
          attachments: rca-*.md
 
       - name: Fail Pipeline
-        if: steps.build.outcome == 'failure'
+        if: steps.build.outcome == 'failure' || steps.docker.outcome == 'failure'
 
         run: |
           exit 1
