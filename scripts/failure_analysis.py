@@ -10,8 +10,7 @@ model = genai.GenerativeModel("gemini-2.5-flash")
 with open("ci.log", "r", encoding="utf-8", errors="ignore") as f:
     ci_log = f.read()[-15000:]
 
-# Full RCA
-full_prompt = f"""
+prompt = f"""
 You are a Senior DevOps Engineer.
 
 Analyze the CI pipeline log.
@@ -33,33 +32,50 @@ CI Log:
 {ci_log}
 """
 
-full_response = model.generate_content(full_prompt)
+try:
+    response = model.generate_content(prompt)
 
-with open("rca.md", "w", encoding="utf-8") as f:
-    f.write(full_response.text)
+    rca_text = response.text
 
-# Short Summary
-summary_prompt = f"""
-You are a Senior DevOps Engineer.
+    # Full RCA
+    with open("rca.md", "w", encoding="utf-8") as f:
+        f.write(rca_text)
 
-Analyze the CI pipeline log.
+    # Summary for GitHub Actions
+    summary_lines = []
 
-Return only:
+    for line in rca_text.splitlines():
+        if len(summary_lines) >= 15:
+            break
+        summary_lines.append(line)
 
+    with open("rca_summary.md", "w", encoding="utf-8") as f:
+        f.write("\n".join(summary_lines))
+
+    print("RCA and Summary generated successfully.")
+
+except Exception as e:
+
+    error_text = f"""
 ## Root Cause
-(max 2 lines)
+
+Gemini API request failed.
+
+## Error
+
+{str(e)}
 
 ## Suggested Fix
-(max 3 lines)
 
-CI Log:
-
-{ci_log}
+- Check Gemini API quota.
+- Verify API key configuration.
+- Retry after quota reset.
 """
 
-summary_response = model.generate_content(summary_prompt)
+    with open("rca.md", "w", encoding="utf-8") as f:
+        f.write(error_text)
 
-with open("rca_summary.md", "w", encoding="utf-8") as f:
-    f.write(summary_response.text)
+    with open("rca_summary.md", "w", encoding="utf-8") as f:
+        f.write(error_text)
 
-print("RCA and Summary generated successfully.")
+    print(f"Gemini API Error: {e}")
