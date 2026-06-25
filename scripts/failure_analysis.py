@@ -26,6 +26,7 @@ Identify:
    - Suggested Fix
 
 If multiple failures exist, prioritize the first blocking failure.
+If an earlier stage fails, treat failures in later stages as cascading failures unless they are independent. Report the first blocking failure as the primary root cause and list later failures separately under "Subsequent Errors".
 
 CI Log:
 
