@@ -45,6 +45,7 @@ jobs:
           GITHUB_ACTIONS: true
           VITE_GITHUB_OWNER: aznavneet
           VITE_GITHUB_REPO: prism
+          VITE_GITHUB_TOKEN: ${{ secrets.VITE_GITHUB_TOKEN }}
         run: npm run build
 
       - name: Upload Build Artifact
