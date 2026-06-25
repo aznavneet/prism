@@ -90,17 +90,17 @@ jobs:
           ls -la
           cat ci.log
 
-      # - name: Push Docker Image
-      #   id: docker_push
-      #   if: steps.docker.outcome == 'success'
-      #   continue-on-error: true
-      #   run: |
-      #     echo "" >> ci.log
-      #     echo "===== DOCKER PUSH =====" >> ci.log
+      - name: Push Docker Image
+        id: docker_push
+        if: steps.docker.outcome == 'success'
+        continue-on-error: true
+        run: |
+          echo "" >> ci.log
+          echo "===== DOCKER PUSH =====" >> ci.log
 
-      #     docker push \
-      #       aznavneet/prism:latest \
-      #       2>&1 | tee -a ci.log
+          docker push \
+            aznavneet/prism:latest \
+            2>&1 | tee -a ci.log
 
       - name: Upload CI Log
         if: always()
@@ -149,26 +149,26 @@ jobs:
           name: ci-rca
           path: ci-rca-*.md
 
-      # - name: Send RCA Email
-      #   if: always()
-      #   uses: dawidd6/action-send-mail@v3
-      #   with:
-      #     server_address: smtp.gmail.com
-      #     server_port: 465
-      #     secure: true
-      #     username: ${{ secrets.MAIL_USERNAME }}
-      #     password: ${{ secrets.MAIL_PASSWORD }}
-      #     subject: "🚨 PRISM CI Failure Analysis"
-      #     to: prism.bot11@gmail.com
-      #     from: PRISM Bot
-      #     body: |
-      #       AI-generated RCA report attached.
-      #     attachments: ci-rca-*.md
+      - name: Send RCA Email
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "🚨 PRISM CI Failure Analysis"
+          to: prism.bot11@gmail.com
+          from: PRISM Bot
+          body: |
+            AI-generated RCA report attached.
+          attachments: ci-rca-*.md
 
-      # - name: Fail Pipeline
-      #   if: |
-      #     steps.build.outcome == 'failure' ||
-      #     steps.docker_login.outcome == 'failure' ||
-      #     steps.docker.outcome == 'failure' ||
-      #     steps.docker_push.outcome == 'failure'
-      #   run: exit 1
+      - name: Fail Pipeline
+        if: |
+          steps.build.outcome == 'failure' ||
+          steps.docker_login.outcome == 'failure' ||
+          steps.docker.outcome == 'failure' ||
+          steps.docker_push.outcome == 'failure'
+        run: exit 1
