@@ -13,10 +13,12 @@ permissions:
   pull-requests: write
 
 jobs:
-
   build:
 
-    if: contains(github.event.pull_request.labels.*.name, 'build:run')
+    if: contains(
+      github.event.pull_request.labels.*.name,
+      'build:run'
+      )
 
     runs-on: ubuntu-latest
 
@@ -35,20 +37,138 @@ jobs:
       - name: Verify Maven Wrapper
         run: chmod +x mvnw
 
-      - name: Build Application
-        run: ./mvnw clean package
+      - name: Initialize CI Log
+        run: |
+          touch ci.log
+          echo "===== CI PIPELINE START =====" > ci.log
 
-      - name: Upload Build Artifacts
-        if: success()
+      - name: Build Application
+        id: build
+        continue-on-error: true
+        run: |
+          echo "===== MAVEN BUILD =====" >> ci.log
+          ./mvnw clean package 2>&1 | tee -a ci.log
+
+      - name: Verify Build Log
+        if: always()
+        run: |
+          pwd
+          ls -la
+          cat ci.log
+
+      - name: Docker Login
+        id: docker_login
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: |
+          echo "" >> ci.log
+          echo "===== DOCKER LOGIN =====" >> ci.log
+
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | \
+          docker login \
+            -u "${{ secrets.DOCKERHUB_USERNAME }}" \
+            --password-stdin \
+            2>&1 | tee -a ci.log
+
+      - name: Build Docker Image
+        id: docker
+        # if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: |
+          echo "" >> ci.log
+          echo "===== DOCKER BUILD =====" >> ci.log
+
+          docker build \
+            -f Dockerfile \
+            -t aznavneet/prism:latest \
+            . 2>&1 | tee -a ci.log
+
+      - name: Verify Docker Log
+        if: always()
+        run: |
+          pwd
+          ls -la
+          cat ci.log
+
+      - name: Push Docker Image
+        id: docker_push
+        if: steps.docker.outcome == 'success'
+        continue-on-error: true
+        run: |
+          echo "" >> ci.log
+          echo "===== DOCKER PUSH =====" >> ci.log
+
+          docker push \
+            aznavneet/prism:latest \
+            2>&1 | tee -a ci.log
+
+      - name: Upload CI Log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: prism-artifacts
-          path: |
-            target/*.jar
+          name: ci-log
+          path: ci.log
 
-      - name: Build Summary
-        if: success()
+      - name: Install Gemini SDK
+        if: always()
         run: |
-          echo "PRISM Build Successful"
-          echo "Branch: ${{ github.head_ref }}"
-          echo "PR Number: ${{ github.event.pull_request.number }}"
+          python -m pip install --upgrade pip
+          pip install google-generativeai
+
+      - name: Generate RCA
+        if: always()
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python scripts/failure_analysis.py
+
+      - name: Publish RCA Summary
+        if: always()
+        run: |
+          echo "## 🚨 PRISM RCA Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat rca_summary.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify RCA File
+        if: always()
+        run: |
+          pwd
+          ls -la
+          cat rca.md
+
+      - name: Rename RCA
+        if: always()
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          mv rca.md ci-rca-${SHORT_SHA}.md
+
+      - name: Upload RCA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-rca
+          path: ci-rca-*.md
+
+      - name: Send RCA Email
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "🚨 PRISM CI Failure Analysis"
+          to: prism.bot11@gmail.com
+          from: PRISM Bot
+          body: |
+            AI-generated RCA report attached.
+          attachments: ci-rca-*.md
+
+      - name: Fail Pipeline
+        if: |
+          steps.build.outcome == 'failure' ||
+          steps.docker_login.outcome == 'failure' ||
+          steps.docker.outcome == 'failure' ||
+          steps.docker_push.outcome == 'failure'
+        run: exit 1
