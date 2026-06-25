@@ -1,4 +1,4 @@
-name: PRISM CI
+name: PRISM CI tool
 
 on:
   pull_request:
