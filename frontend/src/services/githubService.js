@@ -65,31 +65,51 @@ export async function downloadArtifact(artifactId) {
 
 export async function extractMarkdown(zipBuffer) {
   const zip = await JSZip.loadAsync(zipBuffer);
-  const candidate = Object.keys(zip.files).find((entry) => entry.toLowerCase().endsWith('ci-rca.md'));
+  const markdownEntries = Object.entries(zip.files)
+    .filter(([entryName, file]) => !file.dir && /\.md$/i.test(entryName))
+    .map(([entryName]) => entryName);
+
+  const candidate = markdownEntries.find((entryName) => /(^|\/)(ci-rca[^/]*\.md|rca\.md)$/i.test(entryName))
+    || markdownEntries.find((entryName) => /rca/i.test(entryName))
+    || markdownEntries[0];
 
   if (!candidate) {
-    throw new Error('The artifact archive did not contain ci-rca.md.');
+    throw new Error('The artifact archive did not contain a readable RCA markdown file.');
   }
 
   return zip.files[candidate].async('string');
 }
 
-export async function getRcaMarkdown(runId) {
+export async function getRcaArtifact(runId) {
   const artifacts = await getArtifacts(runId);
+  const rankedArtifacts = [...artifacts].sort((left, right) => {
+    const leftScore = /rca|ci-rca/i.test(left.name) ? 1 : 0;
+    const rightScore = /rca|ci-rca/i.test(right.name) ? 1 : 0;
+    return rightScore - leftScore;
+  });
 
-  for (const artifact of artifacts) {
+  for (const artifact of rankedArtifacts) {
     try {
       const archive = await downloadArtifact(artifact.id);
       const markdown = await extractMarkdown(archive);
-      return markdown;
-    } catch (error) {
-      // Continue scanning other artifacts until one yields a readable RCA report.
-      if (error instanceof Error && error.message.includes('ci-rca.md')) {
-        continue;
+
+      if (markdown && markdown.trim()) {
+        return {
+          markdown,
+          artifactName: artifact.name,
+          artifactId: artifact.id,
+          artifactDownloadUrl: artifact.archive_download_url
+        };
       }
-      throw error;
+    } catch {
+      // Continue scanning other artifacts until one yields a readable RCA report.
     }
   }
 
-  throw new Error('No RCA artifact could be extracted for this workflow run.');
+  throw new Error('No RCA markdown could be extracted from the workflow artifacts.');
+}
+
+export async function getRcaMarkdown(runId) {
+  const result = await getRcaArtifact(runId);
+  return result.markdown;
 }

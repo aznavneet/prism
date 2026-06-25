@@ -3,11 +3,13 @@ import { Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import Navbar from '../components/Navbar';
 import Loader from '../components/Loader';
-import { getRcaMarkdown } from '../services/githubService';
+import { getRcaArtifact } from '../services/githubService';
 
 export default function RCAViewer() {
   const { runId } = useParams();
   const [markdown, setMarkdown] = useState('');
+  const [artifactName, setArtifactName] = useState('');
+  const [artifactDownloadUrl, setArtifactDownloadUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -18,9 +20,11 @@ export default function RCAViewer() {
       try {
         setLoading(true);
         setError('');
-        const content = await getRcaMarkdown(runId);
+        const result = await getRcaArtifact(runId);
         if (isMounted) {
-          setMarkdown(content);
+          setMarkdown(result.markdown);
+          setArtifactName(result.artifactName || 'ci-rca');
+          setArtifactDownloadUrl(result.artifactDownloadUrl || '');
         }
       } catch (err) {
         if (isMounted) {
@@ -47,6 +51,22 @@ export default function RCAViewer() {
 
   const content = useMemo(() => markdown || '', [markdown]);
 
+  function handleDownloadMarkdown() {
+    if (!content) {
+      return;
+    }
+
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${artifactName || 'ci-rca'}-extracted.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_45%),linear-gradient(135deg,_#020617,_#0f172a)] px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -59,9 +79,18 @@ export default function RCAViewer() {
               <h1 className="mt-2 text-3xl font-semibold text-white">Root Cause Analysis</h1>
               <p className="mt-2 text-sm text-slate-400">The selected workflow’s exported RCA report is rendered below.</p>
             </div>
-            <Link to="/" className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-sky-500 hover:text-white">
-              Back to dashboard
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleDownloadMarkdown}
+                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-sky-500 hover:text-white"
+              >
+                Download extracted .md
+              </button>
+              <Link to="/" className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-sky-500 hover:text-white">
+                Back to dashboard
+              </Link>
+            </div>
           </div>
         </section>
 
