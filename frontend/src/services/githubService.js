@@ -137,9 +137,11 @@ export async function extractMarkdown(zipBuffer) {
 
   return markdown;
 }
-console.log("getRcaArtifact CALLED", runId);
+
 
 export async function getRcaArtifact(runId) {
+
+  console.log("getRcaArtifact CALLED", runId);
 
   console.log("Fetching artifacts for run:", runId);
 
