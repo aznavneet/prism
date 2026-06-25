@@ -7,6 +7,6 @@ public class FailTest {
 
     @Test
     void shouldFail() {
-        assertEquals(2, 2);
+        assertEquals(3, 2);
     }
 }
