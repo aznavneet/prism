@@ -5,6 +5,11 @@ const owner = import.meta.env.VITE_GITHUB_OWNER || 'aznavneet';
 const repo = import.meta.env.VITE_GITHUB_REPO || 'prism';
 const token = import.meta.env.VITE_GITHUB_TOKEN || '';
 
+console.log("================================");
+console.log("GitHub Token:", token ? "PRESENT" : "MISSING");
+console.log("Token Length:", token.length);
+console.log("================================");
+
 const GITHUB_API_BASE = 'https://api.github.com';
 
 function getHeaders() {
