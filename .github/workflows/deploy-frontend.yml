@@ -3,11 +3,11 @@ name: Deploy PRISM Console
 on:
   push:
     branches:
-      - feature/rca-console
+      - feature/fix
 
   workflow_dispatch:
 
-    
+
 permissions:
   contents: read
   pages: write
