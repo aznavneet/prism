@@ -5,6 +5,11 @@ const owner = import.meta.env.VITE_GITHUB_OWNER || 'aznavneet';
 const repo = import.meta.env.VITE_GITHUB_REPO || 'prism';
 const token = import.meta.env.VITE_GITHUB_TOKEN || '';
 
+console.log("================================");
+console.log("GitHub Token:", token ? "PRESENT" : "MISSING");
+console.log("Token Length:", token.length);
+console.log("================================");
+
 const GITHUB_API_BASE = 'https://api.github.com';
 
 function getHeaders() {
@@ -34,66 +39,141 @@ function normalizeRun(run) {
 }
 
 export async function getWorkflowRuns() {
-  const response = await axios.get(`${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/runs?per_page=20`, {
-    headers: getHeaders()
-  });
+  console.log("Loading workflow runs...");
+
+  const response = await axios.get(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/runs?per_page=20`,
+    {
+      headers: getHeaders()
+    }
+  );
+
+  console.log("Workflow Runs:", response.data.workflow_runs);
 
   return response.data.workflow_runs.map(normalizeRun);
 }
 
 export async function getArtifacts(runId) {
-  const response = await axios.get(`${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/runs/${runId}/artifacts`, {
-    headers: getHeaders()
-  });
+  console.log("Loading artifacts for run:", runId);
+
+  const response = await axios.get(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/runs/${runId}/artifacts`,
+    {
+      headers: getHeaders()
+    }
+  );
+
+  console.log("Artifacts:", response.data.artifacts);
 
   return response.data.artifacts;
 }
 
 export async function downloadArtifact(artifactId) {
-  const response = await axios.get(`${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/artifacts/${artifactId}`, {
-    headers: getHeaders()
+
+  console.log("======================================");
+  console.log("Downloading Artifact:", artifactId);
+
+  const metadata = await axios.get(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/artifacts/${artifactId}`,
+    {
+      headers: getHeaders()
+    }
+  );
+
+  console.log("Artifact Metadata:");
+  console.log(metadata.data);
+
+  const downloadUrl = metadata.data.archive_download_url;
+
+  console.log("Archive Download URL:");
+  console.log(downloadUrl);
+
+  const zipResponse = await axios.get(downloadUrl, {
+    responseType: "arraybuffer",
+    headers: getHeaders(),
+    validateStatus: () => true,
+    maxRedirects: 5
   });
 
-  const downloadUrl = response.data.archive_download_url;
-  const zipResponse = await axios.get(downloadUrl, {
-    responseType: 'arraybuffer',
-    headers: getHeaders()
-  });
+  console.log("Download Status:", zipResponse.status);
+  console.log("Content-Type:", zipResponse.headers["content-type"]);
+  console.log("Content-Length:", zipResponse.data?.byteLength);
+
+  if (zipResponse.status !== 200) {
+    throw new Error(`Artifact download failed with status ${zipResponse.status}`);
+  }
 
   return zipResponse.data;
 }
 
 export async function extractMarkdown(zipBuffer) {
+
+  console.log("Loading ZIP...");
+
   const zip = await JSZip.loadAsync(zipBuffer);
-  const markdownEntries = Object.entries(zip.files)
-    .filter(([entryName, file]) => !file.dir && /\.md$/i.test(entryName))
-    .map(([entryName]) => entryName);
 
-  const candidate = markdownEntries.find((entryName) => /(^|\/)(ci-rca[^/]*\.md|rca\.md)$/i.test(entryName))
-    || markdownEntries.find((entryName) => /rca/i.test(entryName))
-    || markdownEntries[0];
+  console.log("ZIP Loaded");
 
-  if (!candidate) {
-    throw new Error('The artifact archive did not contain a readable RCA markdown file.');
+  console.log("ZIP Files:");
+
+  Object.values(zip.files).forEach(file => {
+    console.log(" ->", file.name);
+  });
+
+  const markdownFile = Object.values(zip.files).find(file =>
+    !file.dir &&
+    file.name.toLowerCase().endsWith(".md")
+  );
+
+  console.log("Selected Markdown:", markdownFile);
+
+  if (!markdownFile) {
+    throw new Error("No markdown file found inside ZIP.");
   }
 
-  return zip.files[candidate].async('string');
+  const markdown = await markdownFile.async("string");
+
+  console.log("Markdown Length:", markdown.length);
+
+  return markdown;
 }
 
+
 export async function getRcaArtifact(runId) {
+
+  console.log("getRcaArtifact CALLED", runId);
+
+  console.log("Fetching artifacts for run:", runId);
+
   const artifacts = await getArtifacts(runId);
-  const rankedArtifacts = [...artifacts].sort((left, right) => {
-    const leftScore = /rca|ci-rca/i.test(left.name) ? 1 : 0;
-    const rightScore = /rca|ci-rca/i.test(right.name) ? 1 : 0;
-    return rightScore - leftScore;
+
+  const rankedArtifacts = [...artifacts].sort((a, b) => {
+    const scoreA = /ci-rca|rca/i.test(a.name) ? 1 : 0;
+    const scoreB = /ci-rca|rca/i.test(b.name) ? 1 : 0;
+    return scoreB - scoreA;
+  });
+
+  console.log("Ranked Artifacts:");
+
+  rankedArtifacts.forEach(a => {
+    console.log(a.name, a.id);
   });
 
   for (const artifact of rankedArtifacts) {
+
+    console.log("--------------------------------");
+    console.log("Trying:", artifact.name);
+
     try {
+
       const archive = await downloadArtifact(artifact.id);
+
       const markdown = await extractMarkdown(archive);
 
       if (markdown && markdown.trim()) {
+
+        console.log("SUCCESS");
+
         return {
           markdown,
           artifactName: artifact.name,
@@ -101,12 +181,23 @@ export async function getRcaArtifact(runId) {
           artifactDownloadUrl: artifact.archive_download_url
         };
       }
-    } catch {
-      // Continue scanning other artifacts until one yields a readable RCA report.
+
+    } catch (err) {
+
+      console.error("FAILED");
+
+      console.error(err);
+
+      if (err.response) {
+        console.error("HTTP Status:", err.response.status);
+        console.error(err.response.data);
+      }
+
+      throw err;
     }
   }
 
-  throw new Error('No RCA markdown could be extracted from the workflow artifacts.');
+  throw new Error("No RCA markdown could be extracted from the workflow artifacts.");
 }
 
 export async function getRcaMarkdown(runId) {
