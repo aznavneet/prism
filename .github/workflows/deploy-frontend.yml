@@ -3,7 +3,7 @@ name: Deploy PRISM Console
 on:
   push:
     branches:
-      - feature/fix
+      - feature/demo
 
   workflow_dispatch:
 
