@@ -66,7 +66,7 @@ jobs:
 
       - name: Build Docker Image
         id: docker
-        if: steps.docker_login.outcome == 'success'
+        # if: steps.build.outcome == 'success'
         continue-on-error: true
         run: |
           echo "" >> ci.log
@@ -89,12 +89,6 @@ jobs:
             aznavneet/prism:latest \
             2>&1 | tee -a ci.log
 
-      - name: Mark CI Complete
-        if: always()
-        run: |
-          echo "" >> ci.log
-          echo "===== CI PIPELINE COMPLETE =====" >> ci.log
-
       - name: Upload CI Log
         if: always()
         uses: actions/upload-artifact@v4
@@ -102,142 +96,7 @@ jobs:
           name: ci-log
           path: ci.log
 
-      - name: Fail CI Job
-        if: |
-          steps.build.outcome == 'failure' ||
-          steps.docker_login.outcome == 'failure' ||
-          steps.docker.outcome == 'failure' ||
-          steps.docker_push.outcome == 'failure'
-        run: exit 1
-
-
-  # ============================================================
-  # JOB 2: CD / EKS
-  # ============================================================
-  cd:
-
-    needs: ci
-
-    if: needs.ci.result == 'success'
-
-    runs-on: ubuntu-latest
-
-    steps:
-
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
-
-      - name: Download CI Log
-        uses: actions/download-artifact@v4
-        with:
-          name: ci-log
-          path: .
-
-      - name: AWS Login
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: latest
-
-      - name: Configure EKS
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
-        run: |
-          echo "" >> ci.log
-          echo "===== EKS CONFIGURATION =====" >> ci.log
-
-          aws eks update-kubeconfig \
-            --name "$EKS_CLUSTER_NAME" \
-            --region "$AWS_REGION" \
-            2>&1 | tee -a ci.log
-
-      - name: Verify EKS
-        run: |
-          echo "" >> ci.log
-          echo "===== EKS NODES =====" >> ci.log
-
-          kubectl get nodes -o wide \
-            2>&1 | tee -a ci.log
-
-      # ----------------------------------------------------------
-      # DEPLOY
-      # ----------------------------------------------------------
-      - name: Deploy to EKS
-        id: deploy
-        continue-on-error: true
-        run: |
-          echo "" >> ci.log
-          echo "===== CD DEPLOYMENT =====" >> ci.log
-
-          kubectl apply -f k8s/deployment.yaml \
-            2>&1 | tee -a ci.log
-
-      # ----------------------------------------------------------
-      # DISCOVER DEPLOYMENT
-      # ----------------------------------------------------------
-      - name: Discover Deployment
-        id: deployment
-        if: always()
-        run: |
-
-          echo "" >> ci.log
-          echo "===== KUBERNETES RESOURCE DISCOVERY =====" >> ci.log
-
-          DEPLOYMENT_NAME=$(kubectl get deployments \
-            -o jsonpath='{.items[0].metadata.name}' \
-            2>/dev/null || true)
-
-          DEPLOYMENT_NAMESPACE=$(kubectl get deployments \
-            -o jsonpath='{.items[0].metadata.namespace}' \
-            2>/dev/null || true)
-
-          echo "Deployment: ${DEPLOYMENT_NAME}" | tee -a ci.log
-          echo "Namespace: ${DEPLOYMENT_NAMESPACE}" | tee -a ci.log
-
-          if [ -z "$DEPLOYMENT_NAME" ]; then
-            echo "No Kubernetes Deployment found." | tee -a ci.log
-            exit 1
-          fi
-
-          echo "deployment_name=$DEPLOYMENT_NAME" >> "$GITHUB_OUTPUT"
-          echo "deployment_namespace=$DEPLOYMENT_NAMESPACE" >> "$GITHUB_OUTPUT"
-
-      # ----------------------------------------------------------
-      # ROLLOUT
-      # ----------------------------------------------------------
-      - name: Rollout Deployment
-        id: rollout
-        if: always() && steps.deployment.outcome == 'success'
-        continue-on-error: true
-        run: |
-
-          DEPLOYMENT_NAME="${{ steps.deployment.outputs.deployment_name }}"
-          DEPLOYMENT_NAMESPACE="${{ steps.deployment.outputs.deployment_namespace }}"
-
-          echo "" >> ci.log
-          echo "===== KUBERNETES ROLLOUT =====" >> ci.log
-
-          echo "Rolling out $DEPLOYMENT_NAME in $DEPLOYMENT_NAMESPACE" \
-            | tee -a ci.log
-
-          kubectl rollout status \
-            deployment/"$DEPLOYMENT_NAME" \
-            -n "$DEPLOYMENT_NAMESPACE" \
-            --timeout=180s \
-            2>&1 | tee -a ci.log
-
-      # ----------------------------------------------------------
-      # KUBERNETES DIAGNOSTICS
-      # ----------------------------------------------------------
-      - name: Collect Kubernetes Diagnostics
+      - name: Install Gemini SDK
         if: always()
         run: |
 
@@ -374,28 +233,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install google-generativeai
 
-      # ----------------------------------------------------------
-      # SEND COMPLETE LOG TO GEMINI
-      # ----------------------------------------------------------
-      - name: Generate Gemini RCA
+      - name: Generate RCA
+        if: always()
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-
-          echo "===== GEMINI ANALYSIS ====="
-
-          python scripts/failure_analysis.py \
-            --type unified \
-            --log ci.log
+          python scripts/failure_analysis.py
 
       - name: Publish RCA Summary
         if: always()
         run: |
-          echo "## 🚨 PRISM Gemini RCA" >> "$GITHUB_STEP_SUMMARY"
+          echo "## 🚨 PRISM RCA Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat rca_summary.md >> $GITHUB_STEP_SUMMARY
 
-          if [ -f rca_summary.md ]; then
-            cat rca_summary.md >> "$GITHUB_STEP_SUMMARY"
-          fi
+      - name: Verify RCA File
+        if: always()
+        run: |
+          pwd
+          ls -la
+          cat rca.md
+
+      - name: Rename RCA
+        if: always()
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          mv rca.md ci-rca-${SHORT_SHA}.md
 
       - name: Upload RCA
         if: always()
@@ -456,3 +319,13 @@ jobs:
           body: |
             AI-generated PRISM CI/CD RCA report attached.
           attachments: rca.md
+
+      - name: Fail Pipeline
+        if: |
+          steps.build.outcome == 'failure' ||
+          steps.docker_login.outcome == 'failure' ||
+          steps.docker.outcome == 'failure' ||
+          steps.docker_push.outcome == 'failure'
+        run: exit 1
+
+        
