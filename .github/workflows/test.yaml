@@ -129,6 +129,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY_ID }}
           aws-region: us-east-1
 
+      - name: verify AWS Login
+        run: |
+          aws sts get-caller-identity 
+
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
@@ -137,8 +141,8 @@ jobs:
       - name: Configure EKS
         id: eks
         env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+          AWS_REGION: us-east-1
+          EKS_CLUSTER_NAME: prism-eks-cluster
         run: |
           echo "" >> ci.log
           echo "===== EKS CONFIGURATION =====" >> ci.log
