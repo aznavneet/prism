@@ -72,7 +72,6 @@ jobs:
 
       - name: Build Docker Image
         id: docker
-        # if: steps.build.outcome == 'success'
         continue-on-error: true
         run: |
           echo "" >> ci.log
@@ -102,25 +101,18 @@ jobs:
             aznavneet/prism:latest \
             2>&1 | tee -a ci.log
 
-      - name: Upload CI Log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-log
-          path: ci.log
-
       - name: Install Gemini SDK
         if: always()
         run: |
           python -m pip install --upgrade pip
           pip install google-generativeai
 
-      - name: Generate RCA
+      - name: Generate CI RCA
         if: always()
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python scripts/failure_analysis.py
+          python scripts/failure_analysis.py --type ci --log ci.log
 
       - name: Publish RCA Summary
         if: always()
@@ -135,6 +127,97 @@ jobs:
           pwd
           ls -la
           cat rca.md
+
+      - name: Run CD / EKS Deployment Diagnostics
+        id: cd_deploy
+        if: always() && steps.build.outcome == 'success' && steps.docker_push.outcome == 'success'
+        continue-on-error: true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+          EKS_DEPLOYMENT_NAME: ${{ secrets.EKS_DEPLOYMENT_NAME }}
+        run: |
+          set +e
+          echo "" >> ci.log
+          echo "===== CD / KUBERNETES LOGS =====" >> ci.log
+          echo "Starting read-only CD diagnostics..." >> ci.log
+
+          echo "" >> ci.log
+          echo "===== KUBECTL VERSION =====" >> ci.log
+          kubectl version --client=true 2>&1 | tee -a ci.log || true
+
+          if [ -n "${AWS_ACCESS_KEY_ID}" ] && [ -n "${AWS_SECRET_ACCESS_KEY}" ] && [ -n "${EKS_CLUSTER_NAME}" ] && [ -n "${AWS_REGION}" ]; then
+            echo "" >> ci.log
+            echo "===== AWS / EKS AUTH =====" >> ci.log
+            aws eks update-kubeconfig --name "${EKS_CLUSTER_NAME}" --region "${AWS_REGION}" 2>&1 | tee -a ci.log || true
+          else
+            echo "AWS/EKS configuration not available; skipping deployment access." >> ci.log
+          fi
+
+          echo "" >> ci.log
+          echo "===== DEPLOYMENTS =====" >> ci.log
+          kubectl get deployments -A 2>&1 | tee -a ci.log || true
+
+          echo "" >> ci.log
+          echo "===== PODS =====" >> ci.log
+          kubectl get pods -A 2>&1 | tee -a ci.log || true
+
+          echo "" >> ci.log
+          echo "===== POD DESCRIPTIONS =====" >> ci.log
+          for ns in $(kubectl get ns -o name 2>/dev/null | cut -d/ -f2); do
+            kubectl describe pods -n "$ns" 2>&1 | tee -a ci.log || true
+          done
+
+          echo "" >> ci.log
+          echo "===== CONTAINER STATUS =====" >> ci.log
+          kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{" "}{.metadata.name}{"\n"}{end}' 2>/dev/null | while read -r ns pod; do
+            if [ -n "$ns" ] && [ -n "$pod" ]; then
+              kubectl get pod "$pod" -n "$ns" -o json 2>&1 | tee -a ci.log || true
+            fi
+          done
+
+          echo "" >> ci.log
+          echo "===== CONTAINER LOGS =====" >> ci.log
+          kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{" "}{.metadata.name}{"\n"}{end}' 2>/dev/null | while read -r ns pod; do
+            if [ -n "$ns" ] && [ -n "$pod" ]; then
+              kubectl logs -n "$ns" "$pod" --all-containers=true --tail=200 2>&1 | tee -a ci.log || true
+            fi
+          done
+
+          echo "" >> ci.log
+          echo "===== EVENTS =====" >> ci.log
+          kubectl get events -A --sort-by='.lastTimestamp' 2>&1 | tee -a ci.log || true
+
+          echo "" >> ci.log
+          echo "===== ROLLOUT STATUS =====" >> ci.log
+          if [ -n "${EKS_DEPLOYMENT_NAME}" ]; then
+            kubectl rollout status deployment/"${EKS_DEPLOYMENT_NAME}" --timeout=180s 2>&1 | tee -a ci.log || true
+          else
+            echo "No EKS deployment name configured; rollout status skipped." >> ci.log
+          fi
+
+          echo "" >> ci.log
+          echo "===== CD DIAGNOSTICS COMPLETE =====" >> ci.log
+
+      - name: Generate CD RCA
+        if: always() && steps.build.outcome == 'success' && steps.docker_push.outcome == 'success'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python scripts/failure_analysis.py --type cd --log ci.log
+          echo "" >> ci.log
+          echo "===== CD RCA =====" >> ci.log
+          cat rca.md >> ci.log
+
+      - name: Upload Final CI Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-log
+          path: ci.log
 
       - name: Rename RCA
         if: always()
@@ -170,5 +253,6 @@ jobs:
           steps.build.outcome == 'failure' ||
           steps.docker_login.outcome == 'failure' ||
           steps.docker.outcome == 'failure' ||
-          steps.docker_push.outcome == 'failure'
+          steps.docker_push.outcome == 'failure' ||
+          steps.cd_deploy.outcome == 'failure'
         run: exit 1
