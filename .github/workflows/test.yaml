@@ -36,10 +36,13 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-          cache: maven
 
-      - name: Verify Maven Wrapper
-        run: chmod +x mvnw
+      - name: Setup Maven
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
 
       - name: Initialize CI Log
         run: |
@@ -53,28 +56,30 @@ jobs:
           echo "" >> ci.log
           echo "===== MAVEN BUILD =====" >> ci.log
 
-          ./mvnw clean package 2>&1 | tee -a ci.log
+          mvn clean install 2>&1 | tee -a ci.log
 
       - name: Docker Login
         id: docker_login
         if: steps.build.outcome == 'success'
         uses: docker/login-action@v3
         with:
+          registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Build Docker Image
-        id: docker
-        if: steps.docker_login.outcome == 'success'
-        continue-on-error: true
+    - name: Build Docker Image
+      id: docker
+      if: steps.docker_login.outcome == 'success'
+      continue-on-error: true
         run: |
           echo "" >> ci.log
           echo "===== DOCKER BUILD =====" >> ci.log
 
           docker build \
             -f Dockerfile \
-            -t aznavneet/prism:latest \
+            -t navneetbhardwaj1/prism:latest \
             . 2>&1 | tee -a ci.log
+
 
       - name: Push Docker Image
         id: docker_push
@@ -85,7 +90,7 @@ jobs:
           echo "===== DOCKER PUSH =====" >> ci.log
 
           docker push \
-            aznavneet/prism:latest \
+            navneetbhardwaj1/prism:latest \
             2>&1 | tee -a ci.log
 
       - name: Mark CI Complete
