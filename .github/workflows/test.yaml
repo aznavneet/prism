@@ -18,14 +18,8 @@ jobs:
   # JOB 1: CI
   # ============================================================
   ci:
-
-    if: contains(
-      github.event.pull_request.labels.*.name,
-      'build:run'
-      )
-
+    if: contains(github.event.pull_request.labels.*.name,'build:run')
     runs-on: ubuntu-latest
-
     steps:
 
       - name: Checkout Source Code
@@ -67,19 +61,18 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-    - name: Build Docker Image
-      id: docker
-      if: steps.docker_login.outcome == 'success'
-      continue-on-error: true
+      - name: Build Docker Image
+        id: docker
+        if: steps.docker_login.outcome == 'success'
+        continue-on-error: true
         run: |
-          echo "" >> ci.log
-          echo "===== DOCKER BUILD =====" >> ci.log
+            echo "" >> ci.log
+            echo "===== DOCKER BUILD =====" >> ci.log
 
-          docker build \
-            -f Dockerfile \
-            -t navneetbhardwaj1/prism:latest \
-            . 2>&1 | tee -a ci.log
-
+            docker build \
+              -f Dockerfile \
+              -t navneetbhardwaj1/prism:latest \
+              . 2>&1 | tee -a ci.log
 
       - name: Push Docker Image
         id: docker_push
