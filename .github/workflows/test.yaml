@@ -433,12 +433,6 @@ jobs:
       # ----------------------------------------------------------
       # Preserve original pipeline result
       # ----------------------------------------------------------
-      - name: Fail Analysis Job
-        if: |
-          needs.ci.result == 'failure' ||
-          needs.cd.result == 'failure'
-        run: exit 1
-
 
   # ============================================================
   # JOB 4: EMAIL
@@ -447,7 +441,7 @@ jobs:
 
     needs: gemini-analysis
 
-    if: success()
+    if: always()
 
     runs-on: ubuntu-latest
 
