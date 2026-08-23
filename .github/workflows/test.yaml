@@ -58,7 +58,6 @@ jobs:
       - name: Docker Login
         id: docker_login
         if: steps.build.outcome == 'success'
-        continue-on-error: true
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -101,14 +100,6 @@ jobs:
         with:
           name: ci-log
           path: ci.log
-
-      - name: Fail CI
-        if: |
-          steps.build.outcome == 'failure' ||
-          steps.docker_login.outcome == 'failure' ||
-          steps.docker.outcome == 'failure' ||
-          steps.docker_push.outcome == 'failure'
-        run: exit 1
 
 
   # ============================================================
